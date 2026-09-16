@@ -1,0 +1,14 @@
+# Override opcional para proxies en el host o en otra máquina.
+# Requiere Docker Compose 2.24.4+ por las etiquetas !override y !reset.
+services:
+  wordpress:
+    ports:
+      - "${PUBLISH_IP:-127.0.0.1}:${WORDPRESS_PUBLISHED_PORT:-8080}:80"
+    networks: !override
+      - backend
+      - egress
+
+# La modalidad publicada no utiliza ni exige una red externa de proxy.
+networks:
+  frontend: !reset null
+  egress:

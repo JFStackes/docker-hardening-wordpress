@@ -1,0 +1,144 @@
+# JFStack
+# https://www.jfstack.es
+# https://github.com/JFStackes
+#
+# Project: Docker Compose Hardening
+# Hardened configuration maintained by JFStack.
+
+name: ${COMPOSE_PROJECT_NAME:-compose-hardening-wordpress}
+
+services:
+  wordpress:
+    image: wordpress:7.1-php8.3-apache
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - NET_BIND_SERVICE
+      - SETGID
+      - SETUID
+    pids_limit: ${WORDPRESS_PIDS_LIMIT:-200}
+    mem_limit: ${WORDPRESS_MEMORY_LIMIT:-768m}
+    cpus: ${WORDPRESS_CPU_LIMIT:-1.0}
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME:-wordpress}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD_FILE: /run/secrets/db_password
+      WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX:-wp_}
+      WORDPRESS_PUBLIC_URL: ${WORDPRESS_PUBLIC_URL:?Set WORDPRESS_PUBLIC_URL in .env}
+      WORDPRESS_TRUST_PROXY_HEADERS: ${WORDPRESS_TRUST_PROXY_HEADERS:-true}
+      WORDPRESS_CONFIG_EXTRA: |
+        define('DISALLOW_FILE_EDIT', true);
+        define('WP_ENVIRONMENT_TYPE', 'production');
+        define('WP_DEBUG', false);
+        define('WP_DEBUG_DISPLAY', false);
+        define('WP_MEMORY_LIMIT', '256M');
+        define('WP_MAX_MEMORY_LIMIT', '512M');
+        define('WP_HOME', getenv('WORDPRESS_PUBLIC_URL'));
+        define('WP_SITEURL', getenv('WORDPRESS_PUBLIC_URL'));
+        define('FORCE_SSL_ADMIN', str_starts_with(getenv('WORDPRESS_PUBLIC_URL'), 'https://'));
+        if (getenv('WORDPRESS_TRUST_PROXY_HEADERS') === 'true'
+            && isset($$_SERVER['HTTP_X_FORWARDED_PROTO'])
+            && strtolower(trim(explode(',', $$_SERVER['HTTP_X_FORWARDED_PROTO'])[0])) === 'https') {
+          $$_SERVER['HTTPS'] = 'on';
+        }
+    secrets:
+      - db_password
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./config/apache/security-hardening.conf:/etc/apache2/conf-enabled/zz-security-hardening.conf:ro
+      - ./config/php/uploads.ini:/usr/local/etc/php/conf.d/zz-hardening.ini:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
+      - /run/apache2:rw,nosuid,nodev,size=16m,mode=0755
+      - /run/lock:rw,nosuid,nodev,size=4m,mode=0755
+    networks:
+      - frontend
+      - backend
+    expose:
+      - "80"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 80) ? 0 : 1);'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    stop_grace_period: 30s
+    logging: &default-logging
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    pids_limit: ${MARIADB_PIDS_LIMIT:-200}
+    mem_limit: ${MARIADB_MEMORY_LIMIT:-768m}
+    cpus: ${MARIADB_CPU_LIMIT:-1.0}
+    environment:
+      MARIADB_DATABASE: ${WORDPRESS_DB_NAME:-wordpress}
+      MARIADB_USER: ${WORDPRESS_DB_USER:-wordpress}
+      MARIADB_PASSWORD_FILE: /run/secrets/db_password
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      MARIADB_AUTO_UPGRADE: "1"
+      MARIADB_INITDB_SKIP_TZINFO: "1"
+    secrets:
+      - db_password
+      - db_root_password
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./config/mariadb/hardening.cnf:/etc/mysql/conf.d/zz-hardening.cnf:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+      - /run/mysqld:rw,nosuid,nodev,size=16m,mode=0755
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    stop_grace_period: 60s
+    logging: *default-logging
+
+networks:
+  frontend:
+    name: ${PROXY_NETWORK:-proxy}
+    external: true
+  backend:
+    internal: true
+
+volumes:
+  wordpress_data:
+  db_data:
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  db_root_password:
+    file: ./secrets/db_root_password.txt

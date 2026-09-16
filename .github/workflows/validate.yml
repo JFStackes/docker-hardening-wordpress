@@ -1,0 +1,52 @@
+name: JFStack WordPress · Validar
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar configuración ficticia
+        run: |
+          cp .env.example .env
+          printf '%s' 'ci-placeholder' > secrets/db_password.txt
+          printf '%s' 'ci-placeholder' > secrets/db_root_password.txt
+
+      - name: Validar Compose base
+        run: docker compose config --quiet
+
+      - name: Validar override de publicación
+        run: docker compose -f compose.yaml -f compose.publish.yaml config --quiet
+
+      - name: Validar sintaxis Shell
+        run: bash -n scripts/*.sh
+
+      - name: Instalar ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+
+      - name: Analizar scripts Shell
+        run: shellcheck scripts/*.sh
+
+      - name: Validar interfaz del Makefile
+        run: make --dry-run config
+
+      - name: Impedir datos sensibles versionados
+        shell: bash
+        run: |
+          if git ls-files \
+            | grep -Ev '(^|/)\.env\.example$|(^|/)secrets/(README\.md|\.gitkeep|.*\.example)$|(^|/)backups/\.gitkeep$' \
+            | grep -E '(^|/)(\.env($|\.)|secrets/|.*\.(key|pem|p12|pfx|sql|dump|enc)$|backups/|exports/)'; then
+            echo 'Se detectaron rutas sensibles versionadas.' >&2
+            exit 1
+          fi

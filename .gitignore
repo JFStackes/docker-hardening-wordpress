@@ -1,0 +1,36 @@
+# Configuración local
+.env
+.env.*
+!.env.example
+
+# Copias de seguridad
+backups/*
+!backups/.gitkeep
+exports/
+*.sql
+*.sql.gz
+*.dump
+*.tar
+*.tar.gz
+*.zip
+*.enc
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Secretos
+secrets/*
+!secrets/.gitkeep
+!secrets/*.example
+
+# Logs y archivos temporales
+*.log
+*.tmp
+*.swp
+*.bak
+.DS_Store
+.idea/
+.vscode/

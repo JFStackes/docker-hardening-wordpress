@@ -1,0 +1,7 @@
+[mariadb]
+local-infile=0
+skip-name-resolve
+skip-show-database
+symbolic-links=0
+max-connections=100
+max-allowed-packet=64M
