@@ -10,6 +10,8 @@ name: ${COMPOSE_PROJECT_NAME:-compose-hardening-wordpress}
 services:
   wordpress:
     image: wordpress:7.1-php8.3-apache
+    entrypoint: ["/usr/local/bin/jfstack-entrypoint"]
+    command: ["apache2-foreground"]
     restart: unless-stopped
     init: true
     read_only: true
@@ -56,6 +58,7 @@ services:
       - wordpress_data:/var/www/html
       - ./config/apache/security-hardening.conf:/etc/apache2/conf-enabled/zz-security-hardening.conf:ro
       - ./config/php/uploads.ini:/usr/local/etc/php/conf.d/zz-hardening.ini:ro
+      - ./scripts/wordpress-entrypoint.sh:/usr/local/bin/jfstack-entrypoint:ro
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
       - /run/apache2:rw,nosuid,nodev,size=16m,mode=0755
@@ -65,6 +68,8 @@ services:
       - backend
     expose:
       - "80"
+    ports:
+      - "${PUBLISH_IP:-127.0.0.1}:${WORDPRESS_PUBLISHED_PORT:-8080}:80"
     depends_on:
       db:
         condition: service_healthy
@@ -129,7 +134,7 @@ services:
 networks:
   frontend:
     name: ${PROXY_NETWORK:-proxy}
-    external: true
+    external: ${PROXY_NETWORK_EXTERNAL:-true}
   backend:
     internal: true
 

@@ -33,4 +33,4 @@ chmod 600 .env secrets/*.txt
 
 echo
 echo "Inicialización completada. Revisa .env, elige la modalidad de proxy y valida Compose."
-echo "La modalidad base requiere que PROXY_NETWORK ya exista; la publicada no usa esa red."
+echo "Si PROXY_NETWORK_EXTERNAL=true, la red PROXY_NETWORK debe existir."

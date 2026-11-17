@@ -21,14 +21,22 @@ jobs:
           printf '%s' 'ci-placeholder' > secrets/db_password.txt
           printf '%s' 'ci-placeholder' > secrets/db_root_password.txt
 
-      - name: Validar Compose base
+      - name: Validar Compose con red externa
         run: docker compose config --quiet
 
-      - name: Validar override de publicación
-        run: docker compose -f compose.yaml -f compose.publish.yaml config --quiet
+      - name: Validar Compose con red propia
+        run: PROXY_NETWORK=jfstack-ci-egress PROXY_NETWORK_EXTERNAL=false docker compose config --quiet
+
+      - name: Comprobar PHP de la imagen y su configuración
+        run: |
+          docker compose pull wordpress
+          docker run --rm --network none -v "$PWD/scripts/wordpress-entrypoint.sh:/check.sh:ro" --entrypoint /check.sh wordpress:7.1-php8.3-apache --check-php
+          docker run --rm --network none -v "$PWD/config/php/uploads.ini:/usr/local/etc/php/conf.d/zz-hardening.ini:ro" --entrypoint php wordpress:7.1-php8.3-apache -r 'exit(ini_get("session.upload_progress.enabled") ? 1 : 0);'
 
       - name: Validar sintaxis Shell
-        run: bash -n scripts/*.sh
+        run: |
+          bash -n deploy.sh scripts/*.sh
+          sh -n scripts/wordpress-entrypoint.sh
 
       - name: Instalar ShellCheck
         run: |
@@ -36,10 +44,7 @@ jobs:
           sudo apt-get install --yes shellcheck
 
       - name: Analizar scripts Shell
-        run: shellcheck scripts/*.sh
-
-      - name: Validar interfaz del Makefile
-        run: make --dry-run config
+        run: shellcheck deploy.sh scripts/*.sh
 
       - name: Impedir datos sensibles versionados
         shell: bash

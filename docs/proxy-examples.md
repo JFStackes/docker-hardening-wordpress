@@ -1,10 +1,10 @@
 # Ejemplos opcionales de proxy para WordPress
 
-Estos fragmentos no forman parte del Compose base. Sustituye dominio, red y política TLS según tu infraestructura. El proxy debe ser el único origen que pueda alcanzar WordPress.
+Estos fragmentos son configuraciones de proxy externas a Compose. Sustituye dominio, red y política TLS según tu infraestructura. El proxy debe ser el único origen que pueda alcanzar WordPress.
 
 ## Nginx en el host
 
-Con `compose.publish.yaml` y `PUBLISH_IP=127.0.0.1`:
+Con `PUBLISH_IP=127.0.0.1`:
 
 ```nginx
 location / {
@@ -31,7 +31,7 @@ Caddy gestiona HTTPS y cabeceras reenviadas de forma predeterminada. Declara pro
 
 ## Traefik como contenedor
 
-Usa la modalidad base y conecta Traefik a `PROXY_NETWORK`. Un archivo dinámico puede usar:
+Configura `PROXY_NETWORK_EXTERNAL=true` y conecta Traefik a `PROXY_NETWORK`. Un archivo dinámico puede usar:
 
 ```yaml
 http:
@@ -48,4 +48,4 @@ http:
           - url: http://wordpress:80
 ```
 
-No se requieren labels, entrypoints o resolvers con nombres concretos. Si Traefik obtiene la configuración desde Docker, añade tus propias labels en un override local, no en el Compose base neutral.
+No se requieren labels, entrypoints o resolvers con nombres concretos. Si Traefik obtiene la configuración desde Docker, añade tus propias labels en tu propia configuración local de Compose.
